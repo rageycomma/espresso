@@ -199,19 +199,27 @@ class EspressoServerIncomingRequest {
  * Responds.
  * @class EspressoServerResponse
  */
-class EspressoServerResponse { 
+class EspressoServerOutgoingRequest { 
+    constructor(response) { 
+        this.responseObject = response;
+    }
+}
 
-    /**
+/**
+ * 
+
+ * @class EspressoServerResponse
+ */
+class EspressoServerResponse {
+  /**
      * Creates an instance of EspressoServerResponse.
      * @param {any} NodeHTTPResponse 
      * @memberof EspressoServerResponse
      */
-    constructor(NodeHTTPResponse) { 
-        this.response = NodeHTTPResponse;
-
-        
+    constructor(request, response) { 
+        this.request = request;
+        this.response = response;
     }
-
 }
 
 
@@ -252,7 +260,10 @@ class EspressoServerInstance {
                         bodyContent = Buffer.concat(body).toString();
                         end = true;     
                         reqObserve.next(
-                            new EspressoServerIncomingRequest(request,bodyContent)
+                            new EspressoServerResponse(
+                                new EspressoServerIncomingRequest(request,bodyContent),
+                                new EspressoServerOutgoingRequest(response)
+                            )
                         );
                     });
 
@@ -364,6 +375,14 @@ class EspressoServer {
                 console.log("Error");
             }
         );
+    }
+
+    /**
+     * Registers modules to run through. 
+     * 
+     * @memberof EspressoServer
+     */
+    modules() {
 
     }
 
@@ -376,6 +395,15 @@ class EspressoServer {
         this._server_instance = new EspressoServerInstance(options);
         this.handleObservers();
     }
+}
+
+/**
+ * A module that is loaded into an EspressoServer.
+ * 
+ * @class EspressoServerModule
+ */
+class EspressoServerModule { 
+
 }
 
 
