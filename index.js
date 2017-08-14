@@ -86,8 +86,6 @@ class EspressoServerIncomingRequestBody {
         this.body_content_raw = body;
     }
 
-
-
     /**
      * Gets the content handlers.
      * @memberof EspressoServerIncomingRequestBody
@@ -114,7 +112,6 @@ class EspressoServerIncomingRequestBody {
          }
     }
 
-
     /**
      * Creates an instance of EspressoServerIncomingRequestBody.
      * @param {any} body 
@@ -127,7 +124,6 @@ class EspressoServerIncomingRequestBody {
         this.parseBodyContent(body,content_type);
     }
 }
-
 
 /**
  * An incoming request.
@@ -242,7 +238,7 @@ class EspressoServerInstance {
      * @memberof EspressoServerInstance
      */
     _createServerInstance(options) {    
-            options = this.getDefaultOptions(options);
+            this.server_options = options;
             this._serverInstance = http.createServer();
 
             /**
@@ -266,9 +262,11 @@ class EspressoServerInstance {
                             )
                         );
                     });
-
-                    // In case the request times out
-                    // TODO: Add timeout.
+                    setTimeout(()=>{
+                        if(!end) { 
+                            throw new EspressoServerTimeoutError();
+                        }
+                    },this.server_options.default_timeout);
                 });
             });
 
@@ -298,33 +296,8 @@ class EspressoServerInstance {
      */
     start () {
         if(!_.isNil(this._serverInstance)) {
-            this._serverInstance.listen();
+            this._serverInstance.listen(this.server_options);
         }
-    }
-
-    /**
-     * Returns server options
-     * 
-     * @param {any} options 
-     * @returns 
-     * @memberof EspressoServerInstance
-     */
-    getDefaultOptions(options) {
-        return _.defaults(options,{
-            host: 'localhost',
-            default_timeout: 30000,
-            content_policy: { 
-                content_types_supported: [
-                    "application/json",
-                    "application/xml"
-                ]
-            },
-            security_policy: {
-                content_types_allowed: []
-            },  
-            port: 80,
-            exclusive: false
-        }); 
     }
 
     /**
@@ -349,6 +322,7 @@ class EspressoServerRouteItem {
      * @param {string} [path="/"] 
      * @param {string} [method="any"] 
      * @param {string} [format="json"] 
+     * @param {any} [handler=() => {}] 
      * @param {any} [supported_formats=[]] 
      * @memberof EspressoServerRouteItem
      */
@@ -357,9 +331,13 @@ class EspressoServerRouteItem {
         path = "/",
         method = "any",
         format = "json",
-        supported_formats = []
+        handler = () => {}
     ) {
-        
+        this.name = name;
+        this.path = path;
+        this.method = method;
+        this.format = format;
+        this.handler = handler;
     }
 }
 
@@ -377,17 +355,10 @@ class EspressoServerRoutes {
      * @memberof EspressoServerRoutes
      */
     parseRoutes(route_array) {
-        var routes = _.filter(route_object,(route_item)=>{
-
-            // Default options if not set
-            route_item = _.defaults(route_item,{
-                route_name: "",
-                route_path: "/",
-                route_format: "json",
-                route_method: "GET", // GET, POST - will add in support for websocket and stream
-                parameters: []
-            });
-
+        this.routes  = _.filter(route_object,(route_item)=>{
+            if(route instanceof EspressoServerRouteItem) { 
+                return route_item;
+            }
         });
     }
 
@@ -398,6 +369,34 @@ class EspressoServerRoutes {
      */
     constructor(route_array) {
         this.parseRoutes(route_array);
+    }
+}
+
+/**
+ * A module that is loaded into an EspressoServer.
+ * 
+ * @class EspressoServerModule
+ */
+class EspressoServerModule { 
+    
+    /**
+     * Runs the action.
+     * 
+     * @memberof EspressoServerModule
+     */
+    runAction(server_response){
+        return this.action(server_response); // If function doesn't return, it'll timeout, and do nothing. 
+    }
+    
+    
+    constructor(
+        name,
+        stage = "beforeResponse",
+        action = ()=>{} // beforeResponse, afterResponse
+    ) {
+        this.name = name;
+        this.stage = stage;
+        this.action = action;
     }
 }
 
@@ -413,10 +412,75 @@ class EspressoServer {
      * 
      * @memberof EspressoServer
      */
-    handleError() {
+    handleError() {}
 
+    /**
+     * Starts the server.
+     * 
+     * @memberof EspressoServer
+     */
+    start() {
+        this._server_instance.start();
+    }
+
+    /**
+     * Runs modules for a given stage.
+     * 
+     * @param {any} server_response 
+     * @memberof EspressoServer
+     */
+    runModules(server_response,stage) {
+        var output = [];
+        output.push(server_response);
+
+        _.each(_.filter(this.modules,(module)=>{
+            return module.stage == stage;
+        }),(module)=>{
+            var last_output = output[output.length-1],
+                stop = false;
+
+            // For any failed modules.
+            setTimeout(()=>{
+                stop = true;
+            },this.options.default_module_timeout);
+
+            var actionReturn = module.runAction(last_output);
+            output.push(actionReturn);
+        });
+
+        return output;
     }
  
+   /**
+     * Returns server options
+     * 
+     * @param {any} options 
+     * @returns 
+     * @memberof EspressoServerInstance
+     */
+    getDefaultOptions(options) {
+        return _.defaults(options,{
+            host: 'localhost',
+            default_timeout: 30000,
+            default_module_timeout: 30000,
+
+            // Todo - Add in policy restriction
+            content_policy: { 
+                content_types_supported: [
+                    "application/json",
+                    "application/xml"
+                ]
+            },
+            // Todo - Add in security restriction 
+            security_policy: {
+                content_types_allowed: []
+            },  
+            port: 80,
+            exclusive: false
+        }); 
+    }
+
+
     /**
      * Handles observers from the parent instance.
      * 
@@ -436,7 +500,12 @@ class EspressoServer {
         );
         this._server_instance.onRequestObservable$.subscribe(
             (listen) => {
-                console.log(listen);
+                var mods = this.runModules(listen,"beforeResponse");
+                listen.response.responseObject.writeHead(200,{
+                    'Content-Type': 'text/plain'
+                });
+                listen.response.responseObject.write("Fuck off mate");
+                listen.response.responseObject.end();
             },
             (other) => { 
                 console.log(other);
@@ -464,8 +533,18 @@ class EspressoServer {
      * 
      * @memberof EspressoServer
      */
-    modules() {
-
+    modules(modules) {
+        this.modules = _.reduce(modules,(result,module)=>{
+            result = _.isArray(result) ? result : [];
+            // So as not to expose any of the class crapola to the user.
+            if(module instanceof EspressoServerModule) { 
+                result.push(module);
+                return result;
+            } else {
+                return result;
+            }
+        });
+        return this;
     }
 
     /**
@@ -474,19 +553,13 @@ class EspressoServer {
      * @memberof EspressoServer
      */
     constructor(options) {
-        this._server_instance = new EspressoServerInstance(options);
+        this.options = this.getDefaultOptions(options);
+        this._server_instance = new EspressoServerInstance(this.options);
         this.handleObservers();
     }
 }
 
-/**
- * A module that is loaded into an EspressoServer.
- * 
- * @class EspressoServerModule
- */
-class EspressoServerModule { 
 
-}
 
 
 
