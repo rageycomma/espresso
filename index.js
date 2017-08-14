@@ -289,10 +289,17 @@ class EspressoServerInstance {
                     reqObserve.next(listener);
                 });
             });
+  }
 
-
-            // Set listen
-            this._serverInstance.listen(options);
+    /**
+     * Start the server.
+     * 
+     * @memberof EspressoServerInstance
+     */
+    start () {
+        if(!_.isNil(this._serverInstance)) {
+            this._serverInstance.listen();
+        }
     }
 
     /**
@@ -330,11 +337,86 @@ class EspressoServerInstance {
 }
 
 /**
+ * Individual route item for routing traffic.
+ * 
+ * @class EspressoServerRouteItem
+ */
+class EspressoServerRouteItem {
+
+    /**
+     * Creates an instance of EspressoServerRouteItem.
+     * @param {string} [name=""] 
+     * @param {string} [path="/"] 
+     * @param {string} [method="any"] 
+     * @param {string} [format="json"] 
+     * @param {any} [supported_formats=[]] 
+     * @memberof EspressoServerRouteItem
+     */
+    constructor(
+        name = "",
+        path = "/",
+        method = "any",
+        format = "json",
+        supported_formats = []
+    ) {
+        
+    }
+}
+
+/**
+ * Defines routes for a given ServerInstance
+ * 
+ * @class EspressoServerRoutes
+ */
+class EspressoServerRoutes {
+    
+    /**
+     * Parse routes.
+     * 
+     * @param {any} route_object 
+     * @memberof EspressoServerRoutes
+     */
+    parseRoutes(route_array) {
+        var routes = _.filter(route_object,(route_item)=>{
+
+            // Default options if not set
+            route_item = _.defaults(route_item,{
+                route_name: "",
+                route_path: "/",
+                route_format: "json",
+                route_method: "GET", // GET, POST - will add in support for websocket and stream
+                parameters: []
+            });
+
+        });
+    }
+
+    /**
+     * Creates an instance of EspressoServerRoutes.
+     * @param {any} route_array 
+     * @memberof EspressoServerRoutes
+     */
+    constructor(route_array) {
+        this.parseRoutes(route_array);
+    }
+}
+
+
+/**
  * Contains the EspressoServerInstance and handles observables.
  * @class EspressoServer
  */
 class EspressoServer {
    
+    /**
+     * Default error handler.
+     * 
+     * @memberof EspressoServer
+     */
+    handleError() {
+
+    }
+ 
     /**
      * Handles observers from the parent instance.
      * 
@@ -349,7 +431,7 @@ class EspressoServer {
                 console.log(other);
             },
             () => {
-                console.log("Error");
+                this.handleError();
             }
         );
         this._server_instance.onRequestObservable$.subscribe(
@@ -360,7 +442,7 @@ class EspressoServer {
                 console.log(other);
             },
             () => {
-                console.log("Error");
+                this.handleError();
             }
         );
 
@@ -372,7 +454,7 @@ class EspressoServer {
                 console.log(other);
             },
             () => {
-                console.log("Error");
+                this.handleError();
             }
         );
     }
@@ -408,6 +490,6 @@ class EspressoServerModule {
 
 
 
-
+module.exports.EspressoServerModule = EspressoServerModule;
 module.exports.EspressoServerInstance = EspressoServerInstance;
 module.exports.EspressoServer = EspressoServer;
