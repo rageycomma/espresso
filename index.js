@@ -200,7 +200,23 @@ class EspressoServerIncomingRequest {
  * @class EspressoServerResponse
  */
 class EspressoServerOutgoingRequest { 
+
+    /**
+     * Adds content to be sent back. 
+     * @param {any} content 
+     * @memberof EspressoServerOutgoingRequest
+     */
+    addContent(content) {
+        this._content = _.merge(this._content,content);
+    }
+    
+    /**
+     * Creates an instance of EspressoServerOutgoingRequest.
+     * @param {any} response 
+     * @memberof EspressoServerOutgoingRequest
+     */
     constructor(response) { 
+        this._content = {};
         this.responseObject = response;
     }
 }
@@ -210,7 +226,18 @@ class EspressoServerOutgoingRequest {
  * @class EspressoServerResponse
  */
 class EspressoServerResponse {
-  /**
+
+    /**
+     * Adds content for the response to send. 
+     * 
+     * @param {any} content 
+     * @memberof EspressoServerResponse
+     */
+    addContent(content) {
+        this.response.addContent(content);
+    }
+
+    /**
      * Creates an instance of EspressoServerResponse.
      * @param {any} NodeHTTPResponse 
      * @memberof EspressoServerResponse
@@ -388,26 +415,6 @@ class EspressoServerModule {
     }
 
     /**
-     * Integrated handler for throwing errors.
-     * 
-     * @param {any} message 
-     * @memberof EspressoServerModule
-     */
-    throwError(message) {
-        throw new Error(message);
-    }
-
-    /**
-     * Adds content that the module will pass to be sent back.
-     * 
-     * @param {any} content 
-     * @memberof EspressoServerModule
-     */
-    addContent(content) {
-        this._content = _.merge(this._content,content);
-    }
-
-    /**
      * Creates an instance of EspressoServerModule.
      * @param {any} name 
      * @param {string} [stage="beforeResponse"] 
@@ -478,6 +485,7 @@ class EspressoServer {
 
             // For any failed modules.
             setTimeout(()=>{
+                applicable = [];
                 stop = true;
             },this.options.default_module_timeout);
             try {
@@ -485,6 +493,7 @@ class EspressoServer {
                 output.push(actionReturn);
             } catch (ThrownError) {
                 // Throw away the rest of the stack, we encountered an error
+                applicable = [];
                 stop = true;
                 output = this.handleError(ThrownError,module.name,stage);
             }
@@ -493,6 +502,28 @@ class EspressoServer {
         return output;
     }
  
+    /**
+     * Sends the response using the processed response object.
+     * 
+     * @memberof EspressoServer
+     */
+    processResponse(resp) {
+        resp.response.responseObject.writeHead(200,{
+            'Content-Type': 'application/json'
+        });
+        resp.response.responseObject.write(
+            JSON.stringify(resp.response._content)
+        );
+        resp.response.responseObject.end();
+    }
+
+    /**
+     * Runs modules at various stages.
+     * 
+     * @param {any} server_response 
+     * @returns 
+     * @memberof EspressoServer
+     */
     runModuleLifecycle(server_response) { 
         var cycles = ["beforeResponse","afterResponse"],
             resp = server_response;
@@ -554,12 +585,14 @@ class EspressoServer {
         );
         this._server_instance.onRequestObservable$.subscribe(
             (listen) => {
-                var mods = this.runModuleLifecycle(listen);
+                var resp = this.runModuleLifecycle(listen);
+                this.processResponse(resp);
+                /*
                 listen.response.responseObject.writeHead(200,{
                     'Content-Type': 'text/plain'
                 });
                 listen.response.responseObject.write("Fuck off mate");
-                listen.response.responseObject.end();
+                listen.response.responseObject.end();*/
             },
             (other) => { 
                 console.log(other);

@@ -8,7 +8,8 @@ var _server = new EspressoServer({
 .modules([
     new EspressoServerModule("Tst","beforeResponse",(x)=>{
         x.poop = "OHMYGAWF";
-        this.addContent({x: "y"});
+        x.addContent({a: "b"});
+        x.addContent({b: "C"});
         return x;
     })
 ])
