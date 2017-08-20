@@ -16,6 +16,10 @@ class EspressoServerInvalidFormatError {
     constructor(code="Ex00003", message = "The data provided in the body of the HTTP request does not match the content-type provided.") {}
 }
 
+class EspressoServerModuleError {
+    constructor(code="Ex00004",message = "") {}
+}
+
 
 /**
  * Class called by EspressoBodyParser to parse XML.
@@ -43,7 +47,7 @@ class EspressoServerBodyParserJSON {
         try {
             this.body_content = JSON.parse(body_content);
         } catch(error) {
-            throw new EspressoServerInvalidFormatError();
+                throw new EspressoServerInvalidFormatError();
         }
     }
 
@@ -202,8 +206,7 @@ class EspressoServerOutgoingRequest {
 }
 
 /**
- * 
-
+ * A response
  * @class EspressoServerResponse
  */
 class EspressoServerResponse {
@@ -219,17 +222,10 @@ class EspressoServerResponse {
 }
 
 
-
-
 /**
- *  EspressoCore - Handles instances of EspressoServer
- *      - EspressoApp - Handles server and config
- *          - EspressoConfig - Configuration of security / etc of the app instance.     
- *          - EspressoRouter - Handles routing of paths on an individual server.
- *              - EspressoRouterRoute - GET/POST
- *                  - Routes, route parameters, route regex & typing, named error handler. 
+ * An instance of a server which handles incoming and etc.
+ * @class EspressoServerInstance
  */
-
 class EspressoServerInstance {
     /**
      * Creates an observable for the server instance.
@@ -263,6 +259,7 @@ class EspressoServerInstance {
                         );
                     });
                     setTimeout(()=>{
+                        body = [];
                         if(!end) { 
                             throw new EspressoServerTimeoutError();
                         }
@@ -385,10 +382,38 @@ class EspressoServerModule {
      * @memberof EspressoServerModule
      */
     runAction(server_response){
-        return this.action(server_response); // If function doesn't return, it'll timeout, and do nothing. 
+        var act = this.action(server_response); // If function doesn't return, it'll timeout, and do nothing. 
+        act._content = this._content;
+        return act;
     }
-    
-    
+
+    /**
+     * Integrated handler for throwing errors.
+     * 
+     * @param {any} message 
+     * @memberof EspressoServerModule
+     */
+    throwError(message) {
+        throw new Error(message);
+    }
+
+    /**
+     * Adds content that the module will pass to be sent back.
+     * 
+     * @param {any} content 
+     * @memberof EspressoServerModule
+     */
+    addContent(content) {
+        this._content = _.merge(this._content,content);
+    }
+
+    /**
+     * Creates an instance of EspressoServerModule.
+     * @param {any} name 
+     * @param {string} [stage="beforeResponse"] 
+     * @param {any} [action=()=>{}] 
+     * @memberof EspressoServerModule
+     */
     constructor(
         name,
         stage = "beforeResponse",
@@ -412,7 +437,12 @@ class EspressoServer {
      * 
      * @memberof EspressoServer
      */
-    handleError() {}
+    handleError(error,module_name,stage) {
+        var err =  new EspressoServerModuleError();
+        err.message = `Module '${module_name}' threw error at stage '${stage}' with error: ${error.message}`;
+        err.stack = error.stack;
+        return err;
+    }
 
     /**
      * Starts the server.
@@ -433,9 +463,16 @@ class EspressoServer {
         var output = [];
         output.push(server_response);
 
-        _.each(_.filter(this.modules,(module)=>{
+        var modules = _.clone(this.enabled_modules);
+        modules = _.isArray(modules) ? modules : [modules];
+
+        var applicable = _.filter(modules,(module)=>{
             return module.stage == stage;
-        }),(module)=>{
+        });
+        
+        if(applicable.length ==0) return server_response;
+
+        _.each(applicable,(module)=>{
             var last_output = output[output.length-1],
                 stop = false;
 
@@ -443,14 +480,31 @@ class EspressoServer {
             setTimeout(()=>{
                 stop = true;
             },this.options.default_module_timeout);
-
-            var actionReturn = module.runAction(last_output);
-            output.push(actionReturn);
+            try {
+                var actionReturn = module.runAction(last_output);
+                output.push(actionReturn);
+            } catch (ThrownError) {
+                // Throw away the rest of the stack, we encountered an error
+                stop = true;
+                output = this.handleError(ThrownError,module.name,stage);
+            }
         });
-
+        
         return output;
     }
  
+    runModuleLifecycle(server_response) { 
+        var cycles = ["beforeResponse","afterResponse"],
+            resp = server_response;
+
+        _.each(cycles,(cycle,iteration)=>{
+            var moduleRes = this.runModules(resp,cycle);
+            resp = iteration == 0 ? server_response : moduleRes;
+        });
+
+        return resp;
+    }
+
    /**
      * Returns server options
      * 
@@ -500,7 +554,7 @@ class EspressoServer {
         );
         this._server_instance.onRequestObservable$.subscribe(
             (listen) => {
-                var mods = this.runModules(listen,"beforeResponse");
+                var mods = this.runModuleLifecycle(listen);
                 listen.response.responseObject.writeHead(200,{
                     'Content-Type': 'text/plain'
                 });
@@ -534,7 +588,10 @@ class EspressoServer {
      * @memberof EspressoServer
      */
     modules(modules) {
-        this.modules = _.reduce(modules,(result,module)=>{
+        if(!_.isArray(modules)) {
+            modules = [modules];
+        }
+        this.enabled_modules = _.reduce(modules,(result,module)=>{
             result = _.isArray(result) ? result : [];
             // So as not to expose any of the class crapola to the user.
             if(module instanceof EspressoServerModule) { 
@@ -544,7 +601,7 @@ class EspressoServer {
                 return result;
             }
         });
-        return this;
+        return this
     }
 
     /**
@@ -554,13 +611,11 @@ class EspressoServer {
      */
     constructor(options) {
         this.options = this.getDefaultOptions(options);
+        this.enabled_modules = [];
         this._server_instance = new EspressoServerInstance(this.options);
         this.handleObservers();
     }
 }
-
-
-
 
 
 module.exports.EspressoServerModule = EspressoServerModule;
