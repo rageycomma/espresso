@@ -202,12 +202,63 @@ class EspressoServerIncomingRequest {
 class EspressoServerOutgoingRequest { 
 
     /**
+     * Sets the status code that will be returned to the user.
+     */    
+    setStatusCode (val) { 
+        this._statusCode = val;
+    }
+
+    /**
+     * Append to the headers sent to the client.
+     * 
+     * @param {any} headers 
+     * @memberof EspressoServerOutgoingRequest
+     */
+    appendHeaders(headers) {
+        this._headers = _.merge(this._headers,headers);
+    }
+
+    /**
+     * Sets the content-type of the content.
+     * 
+     * @param {any} content_type 
+     * @memberof EspressoServerOutgoingRequest
+     */
+    setContentType(content_type){
+        this.appendHeaders({
+            "Content-Type":  content_type
+        });
+    }
+
+    /**
      * Adds content to be sent back. 
      * @param {any} content 
      * @memberof EspressoServerOutgoingRequest
      */
     addContent(content) {
-        this._content = _.merge(this._content,content);
+        if(_.isObject(this._content)) {
+            this._content = _.merge(this._content,content);
+        } else {
+            this.content += content;
+        }
+    }
+
+    /**
+     * Sends response to the end client.
+     * TODO : Remove this, modules should not send responses themselves.
+     * 
+     * @memberof EspressoServerOutgoingRequest
+     */
+    sendResponse() {
+        this.responseObject.writeHead(this._statusCode,this._headers);
+        
+        // If the content is an object, return stringified.
+        if(_.isObject(this._content)) { 
+            this.responseObject.write(JSON.stringify(this._content));
+        } else {
+            this.responseObject.write(this._content);
+        }
+        this.responseObject.end();
     }
     
     /**
@@ -217,6 +268,10 @@ class EspressoServerOutgoingRequest {
      */
     constructor(response) { 
         this._content = {};
+        this._headers = {
+            "Content-Type": "application/json"
+        };
+        this._statusCode = 200;
         this.responseObject = response;
     }
 }
@@ -228,13 +283,79 @@ class EspressoServerOutgoingRequest {
 class EspressoServerResponse {
 
     /**
+     * Sets the status code for the response.
+     * 
+     * @memberof EspressoServerResponse
+     * 
+     */
+    statusCode(status_code) {  
+        this.response.setStatusCode(status_code);
+        return this;
+    }
+
+    /**
+     * Sets headers for response.
+     * 
+     * @param {any} headers 
+     * @returns 
+     * @memberof EspressoServerResponse
+     */
+    headers(headers) { 
+        this.response.appendHeaders(headers);
+        return this;
+    }
+
+    /**
      * Adds content for the response to send. 
      * 
      * @param {any} content 
      * @memberof EspressoServerResponse
      */
-    addContent(content) {
+    content(content) {
         this.response.addContent(content);
+        return this;
+    }
+
+    /**
+     * Sets content type
+     * 
+     * @param {any} content_type 
+     * @memberof EspressoServerResponse
+     */
+    contentType(content_type) {
+        this.response.setContentType(content_type);
+        return this;
+    }
+
+    /**
+     * Shorthand function for setting the response in a module.
+     * NOTE: Consider deprecating before release, is slow.
+     * 
+     * @param {any} response_object 
+     * @memberof EspressoServerResponse
+     */
+    set(response_object) {
+        response_object = _.defaults(response_object,{
+            statusCode: 200,
+            contentType: "application/json",
+            headers: {},
+            content: {}
+        });
+
+        // Sets all properties at once.
+        this.response.setStatusCode(response_object.statusCode);
+        this.response.setContentType(response_object.contentType);
+        this.response.appendHeaders(response_object.headers);
+        this.response.addContent(response_object.content);
+    }
+
+    /**
+     * Sends response to end client.
+     * 
+     * @memberof EspressoServerResponse
+     */
+    sendResponse() {
+        this.response.sendResponse();
     }
 
     /**
@@ -501,20 +622,15 @@ class EspressoServer {
         
         return output;
     }
- 
+
     /**
-     * Sends the response using the processed response object.
+     * Sends response (wrapper)
      * 
+     * @param {any} resp 
      * @memberof EspressoServer
      */
-    processResponse(resp) {
-        resp.response.responseObject.writeHead(200,{
-            'Content-Type': 'application/json'
-        });
-        resp.response.responseObject.write(
-            JSON.stringify(resp.response._content)
-        );
-        resp.response.responseObject.end();
+    sendResponse(resp) {
+        resp.response.sendResponse();
     }
 
     /**
@@ -586,13 +702,7 @@ class EspressoServer {
         this._server_instance.onRequestObservable$.subscribe(
             (listen) => {
                 var resp = this.runModuleLifecycle(listen);
-                this.processResponse(resp);
-                /*
-                listen.response.responseObject.writeHead(200,{
-                    'Content-Type': 'text/plain'
-                });
-                listen.response.responseObject.write("Fuck off mate");
-                listen.response.responseObject.end();*/
+                this.sendResponse(resp);
             },
             (other) => { 
                 console.log(other);
