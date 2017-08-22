@@ -462,24 +462,45 @@ class EspressoServerInstance {
 class EspressoServerRouteItem {
 
     /**
-     * Creates an instance of EspressoServerRouteItem.
-     * @param {string} [name=""] 
-     * @param {string} [path="/"] 
-     * @param {string} [method="any"] 
-     * @param {string} [format="json"] 
-     * @param {any} [handler=() => {}] 
-     * @param {any} [supported_formats=[]] 
+     * Tells the router if the route matches.
+     * 
+     * @param {any} route_string 
      * @memberof EspressoServerRouteItem
      */
+    matchRoute(route_string) {
+
+    }
+
+    /**
+     * Parses a route item.
+     * 
+     * @memberof EspressoServerRouteItem
+     */
+    parseRoute() { 
+        // Matches paths which have parameters in them.
+        var pathRegex = /(\/(\w+)\/){1}((\w+|{\w+}\/?){0,})[\/]?/ig;
+
+        // Gets the path.
+        var pathMatches = pathRegex.exec(this.path);
+
+    }
+
+    /*
+        Routes:
+            /route/{named_param}/{named_param}
+
+    */
+
+
     constructor(
-        name = "",
-        path = "/",
-        method = "any",
-        format = "json",
-        handler = () => {}
+        path,
+        method,
+        format,
+        handler,
+        path_requirements = {}
     ) {
-        this.name = name;
         this.path = path;
+        this.path_requirements = path_requirements;
         this.method = method;
         this.format = format;
         this.handler = handler;
@@ -499,21 +520,22 @@ class EspressoServerRoutes {
      * @param {any} route_object 
      * @memberof EspressoServerRoutes
      */
-    parseRoutes(route_array) {
-        this.routes  = _.filter(route_object,(route_item)=>{
+    setRoutes(route_array) {
+        this._routes  = _.filter(route_object,(route_item)=>{
             if(route instanceof EspressoServerRouteItem) { 
                 return route_item;
             }
         });
     }
 
+
     /**
      * Creates an instance of EspressoServerRoutes.
      * @param {any} route_array 
      * @memberof EspressoServerRoutes
      */
-    constructor(route_array) {
-        this.parseRoutes(route_array);
+    constructor() {
+        this._routes = [];
     }
 }
 
@@ -701,7 +723,13 @@ class EspressoServer {
         );
         this._server_instance.onRequestObservable$.subscribe(
             (listen) => {
+                // Process modules
                 var resp = this.runModuleLifecycle(listen);
+
+                // Process routing.
+
+
+                // Send responses.
                 this.sendResponse(resp);
             },
             (other) => { 
@@ -744,7 +772,28 @@ class EspressoServer {
                 return result;
             }
         });
-        return this
+        return this;
+    }
+
+    /**
+     * Sets routes on the router.
+     * 
+     * @memberof EspressoServer
+     */
+    routes(routes) {
+        var _routes = _.reduce(routes,(iterator,res)=> { 
+            iterator = _.isArray(iterator) ? iterator : [];
+            if(!(res instanceof EspressoServerRouteItem) && _.isObject(res)) { 
+                if(_.isNil(res.path) == false && _.isNil(res.method) == false && _.isNil(res.format) == false && _.isNil(res.handler) == false) { 
+                    path_requirements = _.isNil(res.path_requirements) ? {} : path_requirements;
+                    iterator.push(new EspressoServerRouteItem(res.path,res.method,res.format,res.handler,path_requirements));   
+                }
+            }
+            return iterator;
+        });
+
+        var x= "y";
+        return this;
     }
 
     /**
@@ -756,6 +805,7 @@ class EspressoServer {
         this.options = this.getDefaultOptions(options);
         this.enabled_modules = [];
         this._server_instance = new EspressoServerInstance(this.options);
+        this._router_instance = new EspressoServerRoutes();
         this.handleObservers();
     }
 }
