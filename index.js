@@ -286,7 +286,6 @@ class EspressoServerResponse {
      * Sets the status code for the response.
      * 
      * @memberof EspressoServerResponse
-     * 
      */
     statusCode(status_code) {  
         this.response.setStatusCode(status_code);
@@ -483,6 +482,7 @@ class EspressoServerRouteItem {
         // Gets the path.
         var pathMatches = pathRegex.exec(this.path);
 
+        var x = "y";
     }
 
     /*
@@ -646,6 +646,19 @@ class EspressoServer {
     }
 
     /**
+     * Runs route matching.
+     * @memberof EspressoServer
+     */
+    runRoutes() {
+        var availableRoutes = _.filter(this._router_instance._routes,(route)=>{
+            var x = "y";
+            return route.parseRoute();
+        });
+
+        var x = "y";
+    }
+
+    /**
      * Sends response (wrapper)
      * 
      * @param {any} resp 
@@ -727,7 +740,7 @@ class EspressoServer {
                 var resp = this.runModuleLifecycle(listen);
 
                 // Process routing.
-
+                this.runRoutes();
 
                 // Send responses.
                 this.sendResponse(resp);
@@ -781,18 +794,25 @@ class EspressoServer {
      * @memberof EspressoServer
      */
     routes(routes) {
-        var _routes = _.reduce(routes,(iterator,res)=> { 
-            iterator = _.isArray(iterator) ? iterator : [];
-            if(!(res instanceof EspressoServerRouteItem) && _.isObject(res)) { 
-                if(_.isNil(res.path) == false && _.isNil(res.method) == false && _.isNil(res.format) == false && _.isNil(res.handler) == false) { 
-                    path_requirements = _.isNil(res.path_requirements) ? {} : path_requirements;
-                    iterator.push(new EspressoServerRouteItem(res.path,res.method,res.format,res.handler,path_requirements));   
-                }
-            }
-            return iterator;
-        });
 
-        var x= "y";
+        // Routes
+        var _routes = [];
+
+        // Loop routes
+        _.each(routes,(route)=>{
+            if(!(route instanceof EspressoServerRouteItem) && _.isObject(route)) { 
+                if(_.isNil(route.path) == false && _.isNil(route.method) == false && _.isNil(route.format) == false && _.isNil(route.handler) == false) { 
+                    var path_requirements = _.isNil(route.path_requirements) ? {} : path_requirements;
+                    _routes.push(new EspressoServerRouteItem(route.path,route.method,route.format,route.handler,path_requirements));   
+                }
+            } else if((route instanceof EspressoServerRouteItem)) { 
+                _routes.push(route);
+            } else { 
+                return false;
+            }    
+        });
+        this._router_instance._routes = _routes;       
+ 
         return this;
     }
 
