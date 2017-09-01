@@ -130,6 +130,40 @@ class EspressoServerIncomingRequestBody {
 }
 
 /**
+ * Incoming route item
+ * 
+ * @class EspressoServerIncomingRouteItem
+ */
+class EspressoServerIncomingRouteItem {
+    
+    /**
+     * Parse the route coming in.
+     * 
+     * @memberof EspressoServerIncomingRouteItem
+     */
+    parseRoute() {
+        if(this.path.substring(0,1)!="/") {
+            throw new EspressoServerInvalidFormatError();
+        } else { 
+            this._path = this.path.split("/");
+        }
+    }
+
+    /**
+     * Creates an instance of EspressoServerIncomingRouteItem.
+     * @param {any} route_path 
+     * @param {any} method 
+     * @param {any} incoming 
+     * @memberof EspressoServerIncomingRouteItem
+     */
+    constructor(route_path, method) { 
+        this.path = route_path;
+        this.method = method;
+        this.parseRoute();
+    }
+}
+
+/**
  * An incoming request.
  * @class EspressoServerIncomingRequest
  */
@@ -169,16 +203,15 @@ class EspressoServerIncomingRequest {
             message: this._request.url
         };
 
-        this.Route = { 
-            path: this._request.url,
-            method: this._request.method
-        };
+        this.Route = new EspressoServerIncomingRouteItem(
+            this._request.url,
+            this._request.method
+        );
 
         // Stuff from Node HTTP.
         this.ClientInstance = this._request.client;
         this.ConnectionInstance = this._request.connection;
         this.SocketInstance = this._request.socket;
-
     }
 
     /**
@@ -461,13 +494,65 @@ class EspressoServerInstance {
 class EspressoServerRouteItem {
 
     /**
-     * Tells the router if the route matches.
+     * Matches route.
      * 
-     * @param {any} route_string 
+     * @param {any} route 
      * @memberof EspressoServerRouteItem
      */
-    matchRoute(route_string) {
+    matchRoute(route) {
+        
+        // First, check if it straight-off matches.
+        if(route.path == this.path)
+            return true;
+     
+        var hasRequirements = Object.keys(this.path_requirements).length >0;
+        var hasParams = this._params.length >0;
 
+        // If it doesn't have parameters, why bother?
+        if(!hasParams)
+            return false;
+
+        // If there are parameters, let's match those. 
+        if(hasParams) {
+            // If it has requirements, match them..
+            if(hasRequirements) {
+                // Get keys of path requirements.
+                var req_keys = Object.keys(this.path_requirements);
+
+                // Now key keys of params
+                var param_keys = Object.keys(this._params);
+
+                // Now find out if the params are covered by the requirements.
+                var param_match = _.intersection(req_keys,param_keys);
+
+                // If they don't, we need to default the requirements for the uncovered keys.
+                if(param_match.length != param_keys.length) { 
+                    
+                    // Get differences.
+                    var dif = _.difference(param_keys,param_match);
+
+                    var _def = {
+                        type: "string"
+                    };
+
+                    // Now zip an object with the default.
+                    var _dez = _.fill(Array(dif.length),_def);
+
+                    // Now create the defaults. 
+                    var _new = _.zipObject(dif,_dez);
+
+                    // Parameters now defaulted! 
+                    this._params = _.merge(this._params,_new);
+
+                } 
+
+            } else {
+             
+            }
+        }
+
+        // Return back here when the Route is set up.
+        var x = "y";
     }
 
     /**
@@ -476,21 +561,23 @@ class EspressoServerRouteItem {
      * @memberof EspressoServerRouteItem
      */
     parseRoute() { 
-        // Matches paths which have parameters in them.
-        var pathRegex = /(\/(\w+)\/){1}((\w+|{\w+}\/?){0,})[\/]?/ig;
+        
+        // Get the elements
+        var paths = this.path.split("/");
 
-        // Gets the path.
-        var pathMatches = pathRegex.exec(this.path);
+        // Get the params.
+        var params = _.transform(paths,(res,path_item,key) =>{
+            if(path_item.substring(0,1) == "{" && path_item.substring(path_item.length-1,path_item.length) == "}")
+                res.push({
+                    name:  path_item.substring(1,path_item.length-1),
+                    key: key
+                });
+            return true;
+        });
 
-        var x = "y";
+        this._paths = _.isNil(paths) ? [] : paths;
+        this._params = _.isNil(params) ? [] : params;
     }
-
-    /*
-        Routes:
-            /route/{named_param}/{named_param}
-
-    */
-
 
     constructor(
         path,
@@ -504,6 +591,7 @@ class EspressoServerRouteItem {
         this.method = method;
         this.format = format;
         this.handler = handler;
+        this.parseRoute();
     }
 }
 
@@ -649,13 +737,10 @@ class EspressoServer {
      * Runs route matching.
      * @memberof EspressoServer
      */
-    runRoutes() {
+    runRoutes(route_item) {
         var availableRoutes = _.filter(this._router_instance._routes,(route)=>{
-            var x = "y";
-            return route.parseRoute();
+            return route.matchRoute(route_item);
         });
-
-        var x = "y";
     }
 
     /**
@@ -740,7 +825,7 @@ class EspressoServer {
                 var resp = this.runModuleLifecycle(listen);
 
                 // Process routing.
-                this.runRoutes();
+                this.runRoutes(listen.request.Route);
 
                 // Send responses.
                 this.sendResponse(resp);
@@ -802,7 +887,7 @@ class EspressoServer {
         _.each(routes,(route)=>{
             if(!(route instanceof EspressoServerRouteItem) && _.isObject(route)) { 
                 if(_.isNil(route.path) == false && _.isNil(route.method) == false && _.isNil(route.format) == false && _.isNil(route.handler) == false) { 
-                    var path_requirements = _.isNil(route.path_requirements) ? {} : path_requirements;
+                    var path_requirements = _.isNil(route.path_requirements) ? {} : route.path_requirements;
                     _routes.push(new EspressoServerRouteItem(route.path,route.method,route.format,route.handler,path_requirements));   
                 }
             } else if((route instanceof EspressoServerRouteItem)) { 
