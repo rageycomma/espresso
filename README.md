@@ -67,6 +67,23 @@ To create a single Espresso instance, it's as simple as:
     _server.start();
 ```
 
+Example of a module:
+```javascript
+const EspressoServerModule = require("espresso").EspressoServerModule;
+module.exports = new EspressoServerModule("Tst","beforeResponse",(request)=>{
+    return request.set({
+        contentType: "application/json",
+        statusCode: 200,
+        headers: { 
+            "x-super-schwift": "morty"
+        },
+        content: { 
+            "a" :"b",
+            "c" : "rick"
+        }
+    });
+```
+
 # Design #
 Espresso is designed to take all of the configuration out, and to provide you with a well-formed, easy-to-deploy HTTP server, and separates out server-wide functionality (i.e. Authentication, body parsing, etc) from server-specific functionality (i.e. Your routes, etc).
 
