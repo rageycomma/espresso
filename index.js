@@ -795,9 +795,12 @@ class EspressoServer {
      * Runs route matching.
      * @memberof EspressoServer
      */
-    runRoutes(route_item) {
+    runRoutes(route_item, listen) {
         var availableRoutes = _.filter(this._router_instance._routes,(route)=>{
-            return route.matchRoute(route_item);
+            var match = route.matchRoute(route_item);
+            if(match) {
+                route.handler(listen);
+            }
         });
     }
 
@@ -883,7 +886,7 @@ class EspressoServer {
                 var resp = this.runModuleLifecycle(listen);
 
                 // Process routing.
-                this.runRoutes(listen.request.Route);
+                this.runRoutes(listen.request.Route,listen);
 
                 // Send responses.
                 this.sendResponse(resp);
