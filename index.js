@@ -145,7 +145,7 @@ class EspressoServerIncomingRouteItem {
         if(this.path.substring(0,1)!="/") {
             throw new EspressoServerInvalidFormatError();
         } else { 
-            this._path = this.path.split("/");
+            this._path = this.path.substring(1,this.path.length).split("/");
         }
     }
 
@@ -493,6 +493,59 @@ class EspressoServerInstance {
  */
 class EspressoServerRouteItem {
 
+
+    getDefaultRouteRequirementParameters() {
+        return {
+            pattern: /(.*)/
+        };
+    }
+
+    /**
+     * Matches based upon parsed parameters.
+     * 
+     * @memberof EspressoServerRouteItem
+     */
+    matchParams(route) { 
+        var matches = true,
+            exitMatch = false,
+            rl = route._path.length;
+
+        for(var i =0; i<= rl; i++){
+            var _path = route._path[i],
+                _route = this._paths[i];
+
+            // Is this a parameter?
+            if(this._param_numbers.indexOf(i) != -1) {
+                if(_route.pattern instanceof RegExp){
+                    matches = _route.pattern.exec(_path);
+                    if(!matches) {
+                        exitMatch = true;
+                        i=rl;
+                    } 
+                } 
+            } else { 
+                matches = _path == _route;
+                if(!matches) {
+                    exitMatch = true;
+                    i=rl;
+                }
+            }
+        }
+
+        return exitMatch != true && matches;
+    }
+
+    /**
+     * Ensures all parameters are set correctly.
+     * 
+     * @memberof EspressoServerRouteItem
+     */
+    defaultParams() {
+        this._params = _.transform(this._defaults,(ret,val)=>{
+            ret.push(_.defaults(val,this.getDefaultRouteRequirementParameters()));
+        });
+    }
+
     /**
      * Matches route.
      * 
@@ -500,7 +553,7 @@ class EspressoServerRouteItem {
      * @memberof EspressoServerRouteItem
      */
     matchRoute(route) {
-        
+
         // First, check if it straight-off matches.
         if(route.path == this.path)
             return true;
@@ -520,7 +573,10 @@ class EspressoServerRouteItem {
                 var req_keys = Object.keys(this.path_requirements);
 
                 // Now key keys of params
-                var param_keys = Object.keys(this._params);
+                var param_keys = _.transform(this._params,(it,val)=>{
+                        it.push(val.name);
+                        return true;
+                });
 
                 // Now find out if the params are covered by the requirements.
                 var param_match = _.intersection(req_keys,param_keys);
@@ -531,9 +587,7 @@ class EspressoServerRouteItem {
                     // Get differences.
                     var dif = _.difference(param_keys,param_match);
 
-                    var _def = {
-                        type: "string"
-                    };
+                    var _def = this.getDefaultRouteRequirementParameters();
 
                     // Now zip an object with the default.
                     var _dez = _.fill(Array(dif.length),_def);
@@ -543,16 +597,16 @@ class EspressoServerRouteItem {
 
                     // Parameters now defaulted! 
                     this._params = _.merge(this._params,_new);
-
                 } 
 
             } else {
-             
+                var __def = this.getDefaultRouteRequirementParameters();
+                var __dez = _.fill(Array(this._params.length),__def);
+                this._params = _.merge(this._params,__dez);
             }
         }
 
-        // Return back here when the Route is set up.
-        var x = "y";
+        return this.matchParams(route);
     }
 
     /**
@@ -562,16 +616,19 @@ class EspressoServerRouteItem {
      */
     parseRoute() { 
         
+        var self = this;
+
         // Get the elements
-        var paths = this.path.split("/");
+        var paths = this.path.substring(1,this.path.length).split("/");
 
         // Get the params.
         var params = _.transform(paths,(res,path_item,key) =>{
             if(path_item.substring(0,1) == "{" && path_item.substring(path_item.length-1,path_item.length) == "}")
-                res.push({
+                self._param_numbers.push(key);
+                res[key] = {
                     name:  path_item.substring(1,path_item.length-1),
                     key: key
-                });
+                };
             return true;
         });
 
@@ -591,6 +648,7 @@ class EspressoServerRouteItem {
         this.method = method;
         this.format = format;
         this.handler = handler;
+        this._param_numbers = [];
         this.parseRoute();
     }
 }
