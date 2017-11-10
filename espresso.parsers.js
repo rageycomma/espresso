@@ -1,4 +1,5 @@
-
+const   errors = require('./espresso.errors'),
+        EspressoServerInvalidFormatError = errors.EspressoServerInvalidFormatError;
 /**
  * Class called by EspressoBodyParser to parse XML.
  * 

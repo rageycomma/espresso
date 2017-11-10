@@ -1,5 +1,6 @@
 const   Rx = require("rxjs/Rx"),
         _ = require("lodash"),
+        uuid = require('uuid/v4'),
         Observable = Rx.Observable,
         Subject = Rx.Subject;
 
@@ -15,12 +16,18 @@ class EspressoRouteSubscriber {
         this._router = router;
     }
 
-    done(suc,err=null) { 
+    /**
+     * Signals that the route has finished routing.
+     * 
+     * @memberof EspressoRouteSubscriber
+     */
+    done() { 
+        const self = this;
         this.routeOutgoingObservable$ = Observable.create((obs) => { 
-            if(_.isNil(err)) { 
-                obs.error(err);
+            if(!_.isNil(self.error)) { 
+                obs.error(self.error);
             } else { 
-                obs.next(suc);
+                obs.next(self.content);
             }
         });
         this.routeOutgoingObservableInstance$ = this.routeOutgoingObservable$.multicast(()=>{
@@ -30,17 +37,29 @@ class EspressoRouteSubscriber {
     }
 
     /**
+     * Adds content which will return to the router. 
+     * 
+     * @param {any} content 
+     * @memberof EspressoRouteSubscriber
+     */
+    addContent(content) { 
+        this.content.appendContent(content);
+    }
+
+    /**
      * Subscribes to router instance to get routing stuff. 
      * 
      * @memberof EspressoRouteSubscriber
      */
     subscribeToRouterInstance() { 
         this._router.routeOutgoingSubject.subscribe(
-            success => { 
-                this._callback(success,this,false);
+            success => {
+                this.content = success;
+                this._callback(this);
             },
             error => { 
-                this._callback(error,this,true);
+                this.error = error;
+                this._callback(this);
             }
         );
     }
@@ -54,6 +73,7 @@ class EspressoRouteSubscriber {
     }
 
     constructor(router_instance, callback) { 
+        this.id = uuid();
         this.initObservables();
         this.setCallback(callback);
         this.setRouterParent(router_instance);
@@ -61,7 +81,40 @@ class EspressoRouteSubscriber {
     }
 }
 
+class EspressoRouterContentWrapper { 
+
+    /**
+     * Appends content,
+     * 
+     * @param {any} content 
+     * @memberof EspressoRouterContentWrapper
+     */
+    appendContent(content) { 
+        if(_.isArray(content)) { 
+            this._content = this._content.concat(content);
+        } else { 
+            this.content.push(content);
+        }
+    }
+
+    constructor() { 
+        this.id = uuid();
+        this.content = [];
+    }
+}
+
+
 class EspressoRouter { 
+
+    /**
+     * Default timeout for router requests. 
+     * 
+     * @readonly
+     * @memberof EspressoRouter
+     */
+    get ROUTER_TIMEOUT() { 
+        return 60000;
+    }
 
     /**
      * Sets the instance this route is linked to. 
@@ -73,12 +126,35 @@ class EspressoRouter {
         this._instance = instance; 
     }
 
+    /**
+     * Removes a request when timed out. 
+     * 
+     * @param {any} id 
+     * @memberof EspressoRouter
+     */
+    removeRequest(id) { 
+        this._incoming_requests.delete(id);
+    }
+
+    /**
+     * Routes outgoing traffic to path.
+     * 
+     * @param {any} self 
+     * @param {any} res 
+     * @param {any} is_error 
+     * @memberof EspressoRouter
+     */
     doRouteOutgoing(self,res,is_error) { 
         self.routeOutgoing$ = Observable.create((obs)=>{
             if(is_error) { 
                 obs.error(res);
             } else { 
-                obs.next(res);
+                var outgoing = new EspressoRouterContentWrapper();
+                self._incoming_requests.set(outgoing.id,res);
+                setTimeout(()=>{
+                    self.removeRequest(outgoing.id);
+                },self.ROUTER_TIMEOUT);
+                obs.next(outgoing);
             }
         });
         self.routeOutgoingInstance$ = self.routeOutgoing$.multicast(()=>{
@@ -106,10 +182,20 @@ class EspressoRouter {
         );
     }
 
-    
+    storeRouteResponse() {
+
+    }
+
+    /**
+     * Subscribes to the route item, which provides a response back.
+     * 
+     * @param {any} route_item 
+     * @memberof EspressoRouter
+     */
     subscribeToRouteResponse(route_item) { 
         route_item.routeItemRespondingSubject.subscribe(
             result => { 
+                this.storeRouteResponse();
                 var x = 'y';
             },
             error => { 
@@ -133,6 +219,8 @@ class EspressoRouter {
     }
 
     constructor(server_instance) { 
+        this._incoming_requests = new Map();
+        this._stored_requests = new Map();
         this.initObservables();
         this.setRouterServerInstance(server_instance);
         this.subscribeToServerInstance();
