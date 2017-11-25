@@ -5,7 +5,8 @@ const   Rx = require("rxjs/Rx"),
         Subject = Rx.Subject;
 
 
-const   HttpStatuses = require('./espresso.server').EspressoServerHttpStatuses,
+const   HttpStatuses = require('./espresso.variables'),
+        Statuses = HttpStatuses.EspressoServerHttpStatuses,
         Errors = require('./espresso.errors'),
         EspressoServerNonUniformResponseError = Errors.EspressoServerNonUniformResponseError;
 
@@ -42,17 +43,19 @@ class EspressoRouteSubscriber {
     }
 
     setStatus(name) { 
-        var code = HttpStatuses.get(name);
+        var code = Statuses.get(name);
         if(_.isNil(code)) {
-            code = HttpStatuses.get('OK');
+            code = Statuses.get('OK');
         }
-        this.code = code;
+        this.content.status = code; 
         return this; 
     }
 
     addHeader(header_type,value) { 
-        this.headers.set(header,value);
-        return this; 
+        var headers = this.content.headers; 
+        headers.set(header_type,value);
+        this.content.headers = headers;
+        return this;
     }
 
     addHeaders(header_array) { 
@@ -122,6 +125,22 @@ class EspressoRouterContentWrapper {
         this.route_id = route_id; 
     }
         
+    get headers() { 
+        return this.header_items; 
+    }
+
+    set headers(header_items) { 
+        this.header_items = new Map(header_items);
+    }
+
+    get status() { 
+        return this.code; 
+    }
+
+    set status(status) { 
+        this.code = status; 
+    }
+
     /**
      * Appends content,
      * 
@@ -137,6 +156,7 @@ class EspressoRouterContentWrapper {
 
     constructor() { 
         this.id = uuid();
+        this.header_items = new Map();
         this.content = [];
     }
 }
@@ -242,17 +262,13 @@ class EspressoRouter {
         this._responding_routes.set(result_id,routes);
     }
 
-    sendOutgoingResponse(result_id, content) { 
+    sendOutgoingResponse(result_id, content,context) { 
         var response = this._incoming_requests.get(result_id);
         var outgoing = response.response; 
-/**
- *         this.content = new EspressoRouterContentWrapper();
-        this.code = 0;
-        this.headers = new Map();
- */
-        
+
+        outgoing.addHeadersFromMap(context.header_items);
         outgoing.addContent(content);
-        outgoing.setStatusCode(200);
+        outgoing.setStatusCode(context.code);
         outgoing.sendResponse();
     }
 
@@ -330,7 +346,7 @@ class EspressoRouter {
                 this.collateRouteResponses(result.id,result.route_id);
                 if(this.gatherRouteComplete(result.id)) { 
                     var resp = this.prepareOutgoingResponse(result.id);
-                    this.sendOutgoingResponse(result.id,resp);
+                    this.sendOutgoingResponse(result.id,resp,result);
                 }
             },
             error => { 
