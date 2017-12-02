@@ -1,3 +1,7 @@
+[![Maintainability](https://api.codeclimate.com/v1/badges/c7823d3b12e2b0831d34/maintainability)](https://codeclimate.com/github/rageycomma/espresso/maintainability)
+[![Coverage](https://api.codeclimate.com/v1/badges/c7823d3b12e2b0831d34/test_coverage)](https://codeclimate.com/github/rageycomma/espresso/test_coverage)
+[![Known Vulnerabilities](https://snyk.io/test/github/rageycomma/espresso/badge.svg)](https://snyk.io/test/github/rageycomma/espresso)
+
 
 Espresso is a highly-opionionated, agitating, loudmouth brawler of a HTTP server. Based upon RxJS and Observables, it's designed to take all the headache out of HTTP-servering, and provide simple modularity.
 
