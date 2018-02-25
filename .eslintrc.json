@@ -1,0 +1,31 @@
+{
+    "extends": [
+      "airbnb",
+      "plugin:node/recommended",
+      "plugin:lodash/recommended",
+      "plugin:security/recommended"
+    ],
+    "plugins": [
+      "deprecate",
+      "jest",
+      "node",
+      "lodash",
+      "security"
+    ],
+    "rules": {
+      "node/no-unpublished-require": [0],
+      "lodash/prefer-lodash-method": [0],
+      "lodash/prefer-constant": [0],
+      "lodash/prefer-includes": [0],
+      "arrow-body-style": [0],
+      "comma-dangle": ["error","never"],
+      "require-jsdoc":"error",
+      "valid-jsdoc":"error",
+      "jest/no-disabled-tests": "warn",
+      "jest/no-focused-tests": "error",
+      "jest/no-identical-title": "error",
+      "jest/prefer-to-have-length": "warn",
+      "jest/valid-expect": "error",
+      "class-methods-use-this": [0]
+    }
+}
