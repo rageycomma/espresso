@@ -12,15 +12,17 @@ const EspressoLogOutputConsole = 'Cx00009';
 
 // Router constants.
 const EspressoRouteCommandIdle = 'Cx00010';
-const EspressoRouteCommandCanRoute = 'Cx00011';
-const EspressoRouteCommandDoRoute = 'Cx00012';
-const EspressoRouteCommandReturnData = 'Cx00013';
+const EspressoRouteCommandDoRoute = 'Cx00011';
+
+// Change types
+const EspressoRouteChangeTypeHeaders = 'Cx00012';
+const EspressoRouteChangeTypeContent = 'Cx00013';
 
 module.exports = {
+  EspressoRouteChangeTypeHeaders,
+  EspressoRouteChangeTypeContent,
   EspressoRouteCommandDoRoute,
   EspressoRouteCommandIdle,
-  EspressoRouteCommandCanRoute,
-  EspressoRouteCommandReturnData,
   EspressoLogOutputConsole,
   EspressoLogOutputFileRotating,
   EspressoLogOutputFile,

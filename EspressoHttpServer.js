@@ -1,6 +1,6 @@
 
 const http = require('http');
-
+const { EspressoChange } = require('./EspressoCommon');
 const { BehaviorSubject } = require('rxjs');
 
 
@@ -121,19 +121,6 @@ class EspressoHttpWrapperOptions {
 }
 
 /**
- * A global change object to be emitted.
- *
- * @class EspressoHttpChange
- */
-class EspressoHttpChange {
-  constructor(changeType, previousValue, currentValue) {
-    this.changeType = changeType;
-    this.previousValue = previousValue;
-    this.currentValue = currentValue;
-  }
-}
-
-/**
  * Wrapper for headers to be added to Node HTTP classes.
  *
  * @class EspressoHttpWrapperHeaders
@@ -146,10 +133,10 @@ class EspressoHttpWrapperHeaders {
    * @param {any} currentValue The current value of the changed item.
    * @param {any} previousValue The previous value of the changed item.
    * @memberof EspressoHttpWrapperHeaders
-   * @returns {EspressoHttpChange} An espresso change object.
+   * @returns {EspressoChange} An espresso change object.
    */
   createChange(changeType, currentValue, previousValue) {
-    return new EspressoHttpChange(changeType, currentValue, previousValue);
+    return new EspressoChange(changeType, currentValue, previousValue);
   }
 
   /**
@@ -225,7 +212,7 @@ class EspressoHttpWrapperHeaders {
     this.headers = new Map();
 
     // Create subject for headers added.
-    this.headersChanged$ = new BehaviorSubject(new EspressoHttpChange());
+    this.headersChanged$ = new BehaviorSubject(new EspressoChange());
   }
 
   /**
@@ -417,7 +404,6 @@ class EspressoHttpWrapper {
 }
 
 module.exports = {
-  EspressoHttpChange,
   EspressoHttpWrapperHeaders,
   EspressoHttpWrapperOptions,
   EspresoHttpWrapperIncomingContent,

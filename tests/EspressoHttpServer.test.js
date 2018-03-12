@@ -1,14 +1,15 @@
 /* eslint no-undef: 0 */
 const espresso = require('./../EspressoHttpServer');
 
-const { EspressoHttpWrapperHeaders, EspressoHttpChange, EspressoHttpWrapperOptions } = espresso;
+const { EspressoHttpWrapperHeaders, EspressoHttpWrapperOptions } = espresso;
+const { EspressoChange } = require('../EspressoCommon');
 
 describe('EspressoHttpWrapperHeaders - Test headers are propertly set and got.', () => {
   const headers = new EspressoHttpWrapperHeaders();
 
   test('Tests that subscriptions should provide changes.', () => {
     headers.onHeadersAdded().subscribe((success) => {
-      expect(success).toBeInstanceOf(EspressoHttpChange);
+      expect(success).toBeInstanceOf(EspressoChange);
     });
   });
 
