@@ -55,6 +55,6 @@
   "scripts": {
     "test": "gulp test"
   },
-  "author": "",
-  "license": "ISC"
+  "author": "Jordan Ashley Craw",
+  "license": "GPLv3"
 }

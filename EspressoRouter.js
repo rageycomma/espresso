@@ -8,11 +8,22 @@ const {
 } = require('./EspressoConst');
 
 const { EspressoChange } = require('./EspressoCommon');
-const { BehaviorSubject, Observable } = require('rxjs');
+
+const { BehaviorSubject } = require('rxjs');
+
 const UrlPattern = require('url-pattern');
+
 const uuid = require('uuid/v4');
-const {isObject, isNil} = require('lodash');
-const _ = { isObject, isNil};
+
+const isObject = require('lodash/isObject');
+const isNil = require('lodash/isNil');
+const isEmpty = require('lodash/isEmpty');
+
+const _ = {
+  isObject,
+  isNil,
+  isEmpty
+};
 /**
  * An item passed from the router to the route item.
  *
@@ -173,7 +184,12 @@ class EspressoModuleContainer {
    * @returns {object} This instance to allow chaining.
    */
   addHeaders(headers) {
-    let change = new EspressoChange(EspressoRouteChangeTypeHeaders, this.headers, headers, this.CurrentCommandId);
+    const change = new EspressoChange(
+      EspressoRouteChangeTypeHeaders,
+      this.headers,
+      headers,
+      this.CurrentCommandId
+    );
     headers.forEach(value => this.headers.set(value[0], value[1]));
     change.currentValue = this.headers;
     this.moduleOutgoing$.next(change);
@@ -200,7 +216,12 @@ class EspressoModuleContainer {
    */
   deleteHeaders(headers) {
     const currHeaders = this.headers;
-    let change = new EspressoChange(EspressoRouteChangeTypeHeaders, currHeaders, headers, this.CurrentCommandId);
+    const change = new EspressoChange(
+      EspressoRouteChangeTypeHeaders,
+      currHeaders,
+      headers,
+      this.CurrentCommandId
+    );
     headers.forEach(value => this.headers.delete(value));
     change.currentValue = this.headers;
     this.moduleOutgoing$.next(change);
@@ -228,7 +249,12 @@ class EspressoModuleContainer {
    * @returns {object} This instance to allow chaining.
    */
   addContent(content) {
-    const change = new EspressoChange(EspressoRouteChangeTypeContent, this.Content, content, this.CurrentCommandId);
+    const change = new EspressoChange(
+      EspressoRouteChangeTypeContent,
+      this.Content,
+      content,
+      this.CurrentCommandId
+    );
     this.Content = content;
     this.moduleOutgoing$.next(change);
     return this;
@@ -482,12 +508,26 @@ class EspressoRoute {
   }
 
   /**
+   * Validates if the options passed to the route are valid.
+   *
+   * @param {any} options The options object.
+   * @memberof EspressoRoute
+   * @returns {void}
+   */
+  validateOptions(options) {
+    if (_.isEmpty(options) || !_.isObject(options)) {
+      throw new EspressoErrorInvalidRouteParameters();
+    }
+    this.parseOptions(options);
+  }
+
+  /**
    * Creates an instance of EspressoRoute.
    * @param {any} options Options for the route.
    * @memberof EspressoRoute
    */
   constructor(options) {
-    this.parseOptions(options);
+    this.validateOptions(options);
     this.init();
   }
 }

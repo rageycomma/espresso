@@ -1,8 +1,9 @@
 
 const http = require('http');
-const { EspressoChange } = require('./EspressoCommon');
-const { BehaviorSubject } = require('rxjs');
 
+const { EspressoChange } = require('./EspressoCommon');
+
+const { BehaviorSubject } = require('rxjs');
 
 /**
  * Options to be provided for starting the http server.

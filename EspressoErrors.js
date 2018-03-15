@@ -1,6 +1,9 @@
+const EspressoErrorCodeRouteTimeout = '0x0001';
+const EspressoErrorCodeInvalidRouteAction = '0x0002';
+const EspressoErrorCodeInvalidRouteParameters = '0x0003';
+const EspressoErrorCodeInvalidLogger = '0x0004';
+const EspressoErrorCodeFileSystemError = '0x0005';
 
-const EspressoErrorCodeInvalidLogger = '0x0001';
-const EspressoErrorCodeFileSystemError = '0x0002';
 
 // Map with error messages in it.
 let EspressoErrorMessages = new Map();
@@ -14,8 +17,8 @@ class EspressoErrorRouteTimeout extends Error {
    */
   constructor(context = null) {
     super();
-    this.code = EspressoErrorCodeInvalidLogger;
-    this.message = EspressoErrorMessages.get(EspressoErrorCodeInvalidLogger);
+    this.code = EspressoErrorCodeRouteTimeout;
+    this.message = EspressoErrorMessages.get(EspressoErrorCodeRouteTimeout);
     this.context = context;
   }
 }
@@ -34,8 +37,8 @@ class EspressoErrorInvalidRouteAction extends Error {
    */
   constructor(context = null) {
     super();
-    this.code = EspressoErrorCodeInvalidLogger;
-    this.message = EspressoErrorMessages.get(EspressoErrorCodeInvalidLogger);
+    this.code = EspressoErrorCodeInvalidRouteAction;
+    this.message = EspressoErrorMessages.get(EspressoErrorCodeInvalidRouteAction);
     this.context = context;
   }
 }
@@ -54,8 +57,8 @@ class EspressoErrorInvalidRouteParameters extends Error {
    */
   constructor(context) {
     super();
-    this.code = EspressoErrorCodeInvalidLogger;
-    this.message = EspressoErrorMessages.get(EspressoErrorCodeInvalidLogger);
+    this.code = EspressoErrorCodeInvalidRouteParameters;
+    this.message = EspressoErrorMessages.get(EspressoErrorCodeInvalidRouteParameters);
     this.context = context;
   }
 }
@@ -101,11 +104,11 @@ class EspressoFileSystemError extends Error {
 }
 
 EspressoErrorMessages = new Map([
-  [EspressoErrorCodeInvalidLogger, 'The logger provided is does not correctly implement the EspressoLogger class. '],
+  [EspressoErrorCodeInvalidLogger, 'The logger provided does not correctly implement the EspressoLogger class. '],
   [EspressoErrorCodeFileSystemError, 'There was an error trying to perform a file operation upon a file or folder.'],
-  [EspressoErrorInvalidRouteParameters, 'The parameters for the route provided are invalid. Please ensure each item is set correctly in the route options.'],
-  [EspressoErrorInvalidRouteAction, 'The action provided for the route is invalid - actions must be functions which can be called by Espresso when routing.'],
-  [EspressoErrorRouteTimeout, 'The route request timed out. Please ensure that any observables within your route or async functions complete. If the timeout is too short, please increase the timeout in EspressoRouteOptions']
+  [EspressoErrorCodeInvalidRouteParameters, 'The parameters for the route provided are invalid. If there is no path set, Espresso cannot route the item.'],
+  [EspressoErrorCodeInvalidRouteAction, 'The action provided for the route is invalid - actions must be functions which can be called by Espresso when routing.'],
+  [EspressoErrorCodeRouteTimeout, 'The route request timed out. Please ensure that any observables within your route or async functions complete. If the timeout is too short, please increase the timeout in EspressoRouteOptions']
 ]);
 
 module.exports = {
