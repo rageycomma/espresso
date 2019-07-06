@@ -4,7 +4,9 @@
   "description": "Damn fine HTTP.",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "author": "",
   "license": "ISC",
@@ -29,7 +31,8 @@
     "lodash": "^4.17.4",
     "rxjs": "^5.4.3",
     "uuid": "^3.1.0",
-    "xml-parser": "^1.2.1"
+    "xml-parser": "^1.2.1",
+    "snyk": "^1.192.3"
   },
   "jest": {
     "verbose": true,
@@ -47,5 +50,6 @@
         "statements": 100
       }
     }
-  }
+  },
+  "snyk": true
 }
